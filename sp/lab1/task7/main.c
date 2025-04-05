@@ -1,105 +1,88 @@
 #define _POSIX_C_SOURCE 200809L
-#define _XOPEN_SOURCE 700
+#define _XOPEN_SOURCE   700
+
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <dirent.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <dirent.h>
-#include <sys/stat.h>
 #include <string.h>
-#include <errno.h>
-#include <stdbool.h>
-#include <inttypes.h>
-#include <sys/types.h>
-#include <limits.h>
+#define MAX_PATH 256
 
-typedef struct {
-    ino_t ino;
-    char *name;
-} FileEntry;
+typedef enum{
+    OK,
+    ARGS_ERROR,
+    PATH_ERROR,
+    INVALID_DATA,
+    DIR_NOT_FOUND
+}status_code;
 
-static int calculate_ino_width(ino_t ino) {
-    return snprintf(NULL, 0, "%" PRIuMAX, (uintmax_t)ino);
-}
-
-static bool should_skip_entry(const struct dirent *entry) {
-    return (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0 || entry->d_name[0] == '.');
-}
-
-void process_directory(const char *dirname) {
-    if (!dirname)
-        return;
-    DIR *dir = opendir(dirname);
-    if (!dir)
-        return;
-
-    FileEntry *files = NULL;
-    size_t count = 0;
-    size_t max_ino_width = 0;
-
-    struct dirent *entry;
-    while ((entry = readdir(dir)) != NULL) {
-        if (should_skip_entry(entry)) {
-            continue;
-        }
-
-        char full_path[PATH_MAX];
-        int ret = snprintf(full_path, sizeof(full_path), "%s/%s", dirname, entry->d_name);
-        if (ret < 0) {
-            fprintf(stderr, "Invalid input\n");
-            continue;
-        }
-        if (ret >= (int)sizeof(full_path)) {
-            fprintf(stderr, "Invalid input\n");
-            continue;
-        }
-
-        struct stat statbuf;
-        if (lstat(full_path, &statbuf) == -1) {
-            fprintf(stderr, "Invalid input\n");
-            continue;
-        }
-
-        char *name_copy = strdup(entry->d_name);
-        if (name_copy == NULL) {
-            fprintf(stderr, "Invalid input\n");
-            for (size_t j = 0; j < count; j++) free(files[j].name);
-            free(files);
-            closedir(dir);
-            exit(EXIT_FAILURE);
-        }
-
-        FileEntry fe = { .ino = statbuf.st_ino, .name = name_copy };
-
-        FileEntry *temp = realloc(files, (count + 1) * sizeof(FileEntry));
-        if (temp == NULL) {
-            fprintf(stderr, "Invalid input\n");
-            free(name_copy);
-            for (size_t j = 0; j < count; j++) free(files[j].name);
-            free(files);
-            closedir(dir);
-            exit(EXIT_FAILURE);
-        }
-        files = temp;
-        files[count++] = fe;
-
-        int width = calculate_ino_width(fe.ino);
-        if (width > (int)max_ino_width) max_ino_width = width;
+status_code file_permissions(const char* path){
+    if(!path){
+        return PATH_ERROR;
+    }
+    struct stat st;
+    if(lstat(path, &st) != 0){
+        return INVALID_DATA;
     }
 
-    closedir(dir);
+    mode_t mode = st.st_mode;
+    char permissions[11] = "----------";
 
-    for (size_t i = 0; i < count; i++) {
-        printf("%*" PRIuMAX " %s\n", (int)max_ino_width, (uintmax_t)files[i].ino, files[i].name);
-    }
+    if (S_ISDIR(mode)) permissions[0] = 'd';
+    else if (S_ISCHR(mode)) permissions[0] = 'c';
+    else if (S_ISBLK(mode)) permissions[0] = 'b';
+    else if (S_ISFIFO(mode)) permissions[0] = 'p';
+    else if (S_ISLNK(mode)) permissions[0] = 'l';
+    else if (S_ISSOCK(mode)) permissions[0] = 's';
 
-    for (size_t i = 0; i < count; i++) free(files[i].name);
-    free(files);
+    permissions[1] = (mode & S_IRUSR) ? 'r' : '-';
+    permissions[2] = (mode & S_IWUSR) ? 'w' : '-';
+    permissions[3] = (mode & S_IXUSR) ?
+                     ((mode & S_ISUID) ? 's' : 'x') :
+                     ((mode & S_ISUID) ? 'S' : '-');
+
+    permissions[4] = (mode & S_IRGRP) ? 'r' : '-';
+    permissions[5] = (mode & S_IWGRP) ? 'w' : '-';
+    permissions[6] = (mode & S_IXGRP) ?
+                     ((mode & S_ISGID) ? 's' : 'x') :
+                     ((mode & S_ISGID) ? 'S' : '-');
+
+    permissions[7] = (mode & S_IROTH) ? 'r' : '-';
+    permissions[8] = (mode & S_IWOTH) ? 'w' : '-';
+    permissions[9] = (mode & S_IXOTH) ?
+                     ((mode & S_ISVTX) ? 't' : 'x') :
+                     ((mode & S_ISVTX) ? 'T' : '-');
+
+    printf("%s\n", permissions);
+    return OK;
 }
 
-int main(int argc, char **argv) {
-    if (argc == 1) {
-        process_directory(".");
-    } else {
-        for (int i = 1; i < argc; i++) process_directory(argv[i]);
+int main(int argc, char** argv){
+    if(argc < 2){
+        return ARGS_ERROR;
     }
-    return 0;
+    struct dirent *pDirent;
+    DIR *pDir;
+
+    for(int i = 1; i < argc; i++){
+        pDir = opendir(argv[i]);
+        if(!pDir){
+            printf("CANNOT OPEN %s DIR\n", argv[i]);
+            continue;
+        }
+        printf("%s:\n", argv[i]);
+        while((pDirent = readdir(pDir)) != NULL){
+            printf("File name: %s, № {%lu} Inode ", pDirent->d_name, pDirent->d_ino);
+            char file_path[MAX_PATH];
+            snprintf(file_path, MAX_PATH, "%s/%s", argv[i], pDirent->d_name);
+            if(file_permissions(file_path) != OK){
+                closedir(pDir);
+                return INVALID_DATA;
+            }
+        }
+        closedir(pDir);
+    }
+    return OK;
 }
