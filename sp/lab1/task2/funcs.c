@@ -32,7 +32,7 @@ Error handle_xor(int N, char **files, int num_files) {
             return ERROR_MEMORY;
         }
 
-        if (fread(buffer, 1, file_size, f) != (long unsigned)file_size) {
+        if (fread(buffer, 1, file_size, f) != (size_t)file_size) {
             fprintf(stderr, "Error reading file %s\n", filename);
             free(buffer);
             fclose(f);
@@ -62,22 +62,22 @@ Error handle_xor(int N, char **files, int num_files) {
             }
             memset(padded_buffer + file_size, 0, padded_size - file_size);
 
-            unsigned char *result = calloc(block_size, 1);
-            if (!result) {
+            unsigned char *result_block = calloc(block_size, 1);
+            if (!result_block) {
                 free(padded_buffer);
                 return ERROR_MEMORY;
             }
 
             for (size_t j = 0; j < padded_size; j += block_size)
                 for (size_t k = 0; k < block_size; k++)
-                    result[k] ^= padded_buffer[j + k];
+                    result_block[k] ^= padded_buffer[j + k];
 
             printf("%s: ", filename);
             for (size_t k = 0; k < block_size; k++)
-                printf("%02x", result[k]);
+                printf("%02x", result_block[k]);
             printf("\n");
 
-            free(result);
+            free(result_block);
             free(padded_buffer);
             continue;
         }
@@ -117,7 +117,7 @@ Error handle_mask(const char *mask_str, char **files, int num_files) {
             return ERROR_MEMORY;
         }
 
-        if (fread(buffer, 1, file_size, f) != (long unsigned)file_size) {
+        if (fread(buffer, 1, file_size, f) != (size_t)file_size) {
             fprintf(stderr, "Error reading file %s\n", filename);
             free(buffer);
             fclose(f);
@@ -126,8 +126,9 @@ Error handle_mask(const char *mask_str, char **files, int num_files) {
         fclose(f);
 
         count = 0;
-        for (size_t j = 0; j <= (long unsigned)file_size - 4; j += 4) {
-            num = (buffer[j] << 24) | (buffer[j+1] << 16) | (buffer[j+2] << 8) | buffer[j+3];
+        for (size_t j = 0; j + 4 <= (size_t)file_size; j += 4) {
+            num = (buffer[j] << 24) | (buffer[j+1] << 16)
+                  | (buffer[j+2] << 8) | buffer[j+3];
             if ((num & mask_value) == mask_value) {
                 count++;
             }
@@ -140,7 +141,6 @@ Error handle_mask(const char *mask_str, char **files, int num_files) {
 }
 
 Error handle_copy(int N, char **files, int num_files) {
-
     for (int i = 0; i < num_files; i++) {
         char *src_name = files[i];
         for (int copy_num = 1; copy_num <= N; copy_num++) {
@@ -151,26 +151,27 @@ Error handle_copy(int N, char **files, int num_files) {
 
                 FILE *src = fopen(src_name, "rb");
                 if (!src) {
+                    fprintf(stderr, "Error opening source %s\n", src_name);
                     exit(EXIT_FAILURE);
                 }
 
                 FILE *dest = fopen(dest_name, "wb");
                 if (!dest) {
+                    fprintf(stderr, "Error creating destination %s\n", dest_name);
                     fclose(src);
                     exit(EXIT_FAILURE);
                 }
 
                 unsigned char buffer[BUFFER_SIZE];
                 size_t bytes_read;
-                while ((bytes_read = fread(buffer, 1, sizeof(buffer), src))) {
+                while ((bytes_read = fread(buffer, 1, sizeof(buffer), src)))
                     fwrite(buffer, 1, bytes_read, dest);
-                }
 
                 fclose(src);
                 fclose(dest);
                 exit(EXIT_SUCCESS);
             } else if (pid < 0) {
-                perror("fork");
+                fprintf(stderr, "Error: fork() failed for copying %s\n", src_name);
             }
         }
     }
@@ -181,7 +182,6 @@ Error handle_copy(int N, char **files, int num_files) {
     return OK;
 }
 
-
 Error handle_find(const char *search_str, char **files, int num_files) {
     int found = 0;
     for (int i = 0; i < num_files; i++) {
@@ -190,6 +190,7 @@ Error handle_find(const char *search_str, char **files, int num_files) {
         if (pid == 0) {
             FILE *f = fopen(filename, "r");
             if (!f) {
+                fprintf(stderr, "Error opening file %s\n", filename);
                 exit(EXIT_FAILURE);
             }
 
@@ -211,7 +212,7 @@ Error handle_find(const char *search_str, char **files, int num_files) {
             free(content);
             exit(result ? EXIT_SUCCESS : EXIT_FAILURE);
         } else if (pid < 0) {
-            perror("fork");
+            fprintf(stderr, "Error: fork() failed for searching in %s\n", filename);
             continue;
         } else {
             int status;

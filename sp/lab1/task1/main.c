@@ -13,7 +13,7 @@ int main(void) {
     // Загружаем пользователей из файла
     int capacity = 0;
     int counter = 0;
-    User *array = load_users("C:/Users/mrbor/CLionProjects/fund_algs_sp/sp/lab1/task2/build/users.txt", &counter, &capacity);
+    User *array = load_users("users.txt", &counter, &capacity);
     if (!array) {
         // Если не удалось загрузить, допустим, начнём "с нуля"
         capacity = 4;

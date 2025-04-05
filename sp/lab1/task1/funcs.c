@@ -7,7 +7,7 @@
    по одной строке на пользователя */
 
 User *load_users(const char *filename, int *pcount, int *pcapacity) {
-    FILE *fp = fopen(filename, "r");
+    FILE *fp = fopen(filename, "r+");
     if (!fp) {
         // Файл отсутствует => вернём NULL
         return NULL;
@@ -34,7 +34,7 @@ User *load_users(const char *filename, int *pcount, int *pcapacity) {
         // Парсим: login pin sf limit commands
         char tmp_login[16];
         int tmp_pin, tmp_sf, tmp_lim, tmp_cmd;
-        int fields = sscanf(line, "%15s %d %d %d %d",
+        int fields = sscanf(line, "%6s %d %d %d %d",
                             tmp_login, &tmp_pin, &tmp_sf, &tmp_lim, &tmp_cmd);
         if (fields < 5) {
             printf("Error parse line: %s\n", line);
@@ -91,7 +91,7 @@ User *load_users(const char *filename, int *pcount, int *pcapacity) {
 }
 
 void save_users(const char *filename, const User *arr, int count) {
-    FILE *fp = fopen(filename, "w");
+    FILE *fp = fopen(filename, "w+");
     if (!fp) {
         printf("Error saving file %s\n", filename);
         return;
@@ -105,6 +105,7 @@ void save_users(const char *filename, const User *arr, int count) {
                 arr[i].limit,
                 arr[i].commands);
     }
+
     fclose(fp);
     printf("Saved %d users to %s (text mode)\n", count, filename);
 }
