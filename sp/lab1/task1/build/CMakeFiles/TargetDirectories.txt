@@ -1,0 +1,3 @@
+/mnt/c/Users/mrbor/CLionProjects/fund_algs_sp/sp/lab1/task1/build/CMakeFiles/lab1_task1.dir
+/mnt/c/Users/mrbor/CLionProjects/fund_algs_sp/sp/lab1/task1/build/CMakeFiles/edit_cache.dir
+/mnt/c/Users/mrbor/CLionProjects/fund_algs_sp/sp/lab1/task1/build/CMakeFiles/rebuild_cache.dir

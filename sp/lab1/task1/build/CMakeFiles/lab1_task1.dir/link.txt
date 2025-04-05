@@ -1,0 +1,1 @@
+/usr/bin/cc CMakeFiles/lab1_task1.dir/main.c.o CMakeFiles/lab1_task1.dir/funcs.c.o -o lab1_task1 

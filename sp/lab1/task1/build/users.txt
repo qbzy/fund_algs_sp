@@ -1,0 +1,13 @@
+mike 123 0 0 0
+john 111 0 0 0
+cat 777 1 5 1
+user1 111 0 0 0
+user2 222 0 0 0
+user3 333 0 0 0
+user4 444 0 0 0
+user5 555 0 0 0
+user6 666 0 0 0
+user7 777 0 0 0
+user8 888 0 0 0
+user9 999 0 0 0
+user10 1010 0 0 0
